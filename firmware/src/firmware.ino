@@ -24,6 +24,7 @@
 #include <sensor_msgs/msg/imu.h>
 #include <geometry_msgs/msg/twist.h>
 #include <geometry_msgs/msg/vector3.h>
+#include <std_msgs/msg/int32.h>
 
 #include "config.h"
 #include "motor.h"
@@ -45,11 +46,13 @@
 
 rcl_publisher_t odom_publisher;
 rcl_publisher_t imu_publisher;
+rcl_publisher_t debug_publisher;
 rcl_subscription_t twist_subscriber;
 
 nav_msgs__msg__Odometry odom_msg;
 sensor_msgs__msg__Imu imu_msg;
 geometry_msgs__msg__Twist twist_msg;
+std_msgs__msg__Int32 debug_msg;
 
 rclc_executor_t executor;
 rclc_support_t support;
@@ -128,6 +131,8 @@ void loop() {
             }
             break;
         case AGENT_CONNECTED:
+	    publishDebug();
+
             EXECUTE_EVERY_N_MS(200, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
             if (state == AGENT_CONNECTED) 
             {
@@ -167,6 +172,13 @@ bool createEntities()
     RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
     // create node
     RCCHECK(rclc_node_init_default(&node, "linorobot_base_node", "", &support));
+    // create debug publisher
+    RCCHECK(rclc_publisher_init_default( 
+        &debug_publisher, 
+        &node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+        "debug"
+    ));
     // create odometry publisher
     RCCHECK(rclc_publisher_init_default( 
         &odom_publisher, 
@@ -292,6 +304,13 @@ void moveBase()
         current_vel.angular_z
     );
 }
+
+void publishDebug()
+{
+    debug_msg.data = 0;
+    RCSOFTCHECK(rcl_publish(&debug_publisher, &debug_msg, NULL));
+}
+
 
 void publishData()
 {
